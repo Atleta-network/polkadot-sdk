@@ -43,7 +43,7 @@ without an interface for this cache secret. Their original launcher and compiler
 settings remain unchanged; those nested builds are not claimed to use sccache.
 They need a separate reviewed launcher integration and WASM byte-equivalence
 validation. The hosted-image cleanup action explicitly disables Docker image
-pruning because the organization runners share a daemon.
+pruning and all other deletion switches because the runners share a daemon.
 
 ## Reusable workflows
 
@@ -59,3 +59,10 @@ release-killswitch, draft and required-job gates remain in place.
 Full application image builds, actual old-kernel/macOS capacity, external-service
 gates and isolated application cold/warm measurements are review gates. Shared
 small-crate cache probes establish helper/backend behavior, not SDK performance.
+
+GitHub job-container startup additionally requires the runner work directory to
+be visible at the same host path used by the Docker daemon. Current Compose
+mounts do not establish that workspace bridge. Container-job and srtool
+executability therefore remain blocked until the runner workspace mapping is
+validated and provided through an operator-reviewed, busy-job-safe change. This
+PR does not claim that cache mounts alone provide that workspace support.

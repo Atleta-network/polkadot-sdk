@@ -244,18 +244,17 @@ jobs:
 
       # 3. Verify the build. Push the changes or create a PR.
 
-      # We've run into out-of-disk error when compiling in the next step, so we free up some space this way.
+      # Existing runner-group maintenance owns cleanup; this action reports space only.
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # 1.3.1
         with:
-          android: true # This alone is a 12 GB save.
-          # We disable the rest because it caused some problems. (they're enabled by default)
-          # The Android removal is enough.
+          android: false
           dotnet: false
           haskell: false
           large-packages: false
           swap-storage: false
           docker-images: false # The Docker daemon is shared by runner jobs.
+          tool-cache: false
 
       - name: Check if it compiles
         id: check-compilation
