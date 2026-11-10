@@ -56,5 +56,5 @@ jobs:
           python3 --version
           prdoc_venv="$(mktemp -d "$RUNNER_TEMP/prdoc-venv.XXXXXX")"
           python3 -m venv "$prdoc_venv"
-          "$prdoc_venv/bin/python" -m pip install cargo-workspace==1.2.1
+          "$prdoc_venv/bin/python" -m pip install cargo-workspace==1.2.1 PyYAML==6.0.3
           "$prdoc_venv/bin/python" .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
