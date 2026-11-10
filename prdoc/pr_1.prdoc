@@ -1,0 +1,21 @@
+title: Run CI on self-hosted runners with scoped Cargo compiler caching
+
+doc:
+  - audience:
+      - Node Dev
+      - Node Operator
+    description: |
+      GitHub workflows use the existing Atleta-network self-hosted runner group.
+      Supported Rust job containers and Docker builders use the group compiler
+      cache with pinned sccache and temporary trusted configuration forwarding.
+      Cache access is restricted by the existing pull-request trust boundary.
+      Each runner keeps an isolated workspace and tool storage; build targets
+      are not shared between concurrent jobs. PRdoc Python tools install into a
+      private temporary environment with their required YAML parser.
+
+      Existing toolchains, compiler arguments, test partitions, release gates
+      and final runtime stages are preserved. Native macOS ARM64 and oldlinux
+      lanes require matching self-hosted capacity. Full SDK build and release
+      validation remains required before this infrastructure change is merged.
+
+crates: []
