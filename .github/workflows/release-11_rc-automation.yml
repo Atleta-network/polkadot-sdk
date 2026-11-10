@@ -16,7 +16,9 @@ on:
 
 jobs:
   tag_rc:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     strategy:
       matrix:
         channel:

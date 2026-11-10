@@ -25,12 +25,20 @@ jobs:
   build-runtimes-polkavm:
     timeout-minutes: 60
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Check Rust
         run: |
@@ -52,15 +60,34 @@ jobs:
   # As part of our test fixtures we build the revive-uapi crate always with the `unstable-hostfn` feature.
   # To make sure that it won't break for users downstream which are not setting this feature
   # It doesn't need to produce working code so we just use a similar enough RISC-V target
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   check-revive-stable-uapi-polkavm:
     timeout-minutes: 30
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Check Rust
         run: |
@@ -77,15 +104,33 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   build-subkey:
     timeout-minutes: 20
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Check Rust
         run: |
@@ -106,8 +151,20 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   confirm-required-build-misc-jobs-passed:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     name: All build misc jobs passed
     # If any new job gets added, be sure to add it to this array
     needs: [build-runtimes-polkavm, build-subkey]

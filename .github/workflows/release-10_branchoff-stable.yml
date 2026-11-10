@@ -14,7 +14,9 @@ on:
 
 jobs:
   prepare-tooling:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
       stable_version: ${{ steps.validate_inputs.outputs.stable_version }}
@@ -36,7 +38,9 @@ jobs:
 
   create-stable-branch:
     needs: [prepare-tooling]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}

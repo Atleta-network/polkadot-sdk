@@ -20,7 +20,9 @@ env:
 
 jobs:
   check-prdoc:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     timeout-minutes: 10
     steps:
       - name: Checkout repo

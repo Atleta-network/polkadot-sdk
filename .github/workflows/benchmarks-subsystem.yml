@@ -24,8 +24,13 @@ jobs:
   build:
     timeout-minutes: 80
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
       fail-fast: false
@@ -53,6 +58,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: Check Rust
         run: |
           rustup show
@@ -70,12 +78,24 @@ jobs:
           name: ${{matrix.features.bench}}
           path: ./charts
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   publish-benchmarks:
     timeout-minutes: 60
     needs: [build]
     if: github.ref == 'refs/heads/master'
     environment: subsystem-benchmarks
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

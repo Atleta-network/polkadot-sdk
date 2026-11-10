@@ -15,7 +15,9 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   test-cmd-bot:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [isdraft]
     steps:
       - uses: actions/checkout@v4

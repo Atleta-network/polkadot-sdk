@@ -1,10 +1,15 @@
+# syntax=docker/dockerfile:1.7
 FROM docker.io/paritytech/ci-unified:latest as builder
 
 WORKDIR /polkadot
 COPY . /polkadot
 
 RUN cargo fetch
-RUN cargo build --locked --release
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build --locked --release
 
 FROM docker.io/parity/base-bin:latest
 

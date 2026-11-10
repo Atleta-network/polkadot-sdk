@@ -22,17 +22,25 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   cargo-clippy:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 40
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-D warnings"
       SKIP_WASM_BUILD: 1
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         id: required
         run: |
@@ -45,15 +53,33 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   check-try-runtime:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 40
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         id: required
         run: |
@@ -72,15 +98,34 @@ jobs:
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   # check-core-crypto-features works fast without forklift
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   check-core-crypto-features:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         id: required
         run: |
@@ -101,8 +146,21 @@ jobs:
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   confirm-required-checks-passed:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     name: All checks passed
     # If any new job gets added, be sure to add it to this array
     needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]

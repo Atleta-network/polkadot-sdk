@@ -24,10 +24,15 @@ jobs:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 60
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
@@ -37,6 +42,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: script
         run: |
@@ -45,13 +53,28 @@ jobs:
           cd ../application-crypto
           forklift cargo build --locked --no-default-features --features full_crypto
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
     # into one job
     needs: [preflight, test-full-crypto-feature]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
@@ -61,6 +84,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
@@ -68,12 +94,27 @@ jobs:
           cd ../basic
           forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   test-frame-ui:
     timeout-minutes: 60
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
@@ -86,6 +127,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         run: |
           cargo version
@@ -97,18 +141,36 @@ jobs:
           # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
           forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   test-deterministic-wasm:
     timeout-minutes: 20
     needs: [preflight, test-frame-examples-compile-to-wasm]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       WASM_BUILD_NO_COLOR: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
+
       - name: script
         run: |
           # build runtime
@@ -121,6 +183,16 @@ jobs:
           # confirm checksum
           sha256sum -c checksum.sha256
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   cargo-check-benches:
     needs: [preflight]
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
@@ -128,8 +200,13 @@ jobs:
     strategy:
       matrix:
         branch: [master, current]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
@@ -138,6 +215,30 @@ jobs:
           # if branch is master, use the branch, otherwise set empty string, so it uses the current context
           # either PR (including forks) or merge group (main repo)
           ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
+
+      - name: Configure runner Cargo cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          if [[ ! -s /run/secrets/cargo_cache_env ]]; then
+            echo 'RUSTC_WRAPPER=' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          set -a
+          # shellcheck disable=SC1091
+          . /run/secrets/cargo_cache_env
+          set +a
+          printf '::add-mask::%s\n' "$SCCACHE_WEBDAV_PASSWORD"
+          for name in SCCACHE_WEBDAV_ENDPOINT SCCACHE_WEBDAV_USERNAME SCCACHE_WEBDAV_PASSWORD \
+            SCCACHE_WEBDAV_DISABLE_CREATE_DIR SCCACHE_SKIP_CACHE_CHECK \
+            CARGO_CACHE_AUTO_CLEAN_FREQUENCY; do
+            printf '%s=%s\n' "$name" "${!name-}" >> "$GITHUB_ENV"
+          done
+          session="$(mktemp -d /tmp/sdk-sccache.XXXXXX)"
+          printf '%s\n' 'RUSTC_WRAPPER=/opt/runner-cargo-cache/sccache' \
+            'CARGO_INCREMENTAL=0' 'SCCACHE_IGNORE_SERVER_IO_ERROR=1' \
+            'FORKLIFT_BYPASS=true' "SCCACHE_SERVER_UDS=$session/server.sock" >> "$GITHUB_ENV"
 
       - name: script
         run: |
@@ -157,10 +258,22 @@ jobs:
           name: cargo-check-benches-${{ matrix.branch }}-${{ github.sha }}
           retention-days: 1
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   node-bench-regression-guard:
     timeout-minutes: 20
     if: always() && !cancelled()
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [preflight, cargo-check-benches]
     steps:
       - name: Checkout
@@ -212,13 +325,21 @@ jobs:
   test-node-metrics:
     needs: [preflight]
     timeout-minutes: 30
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Run tests
         id: tests
@@ -242,32 +363,69 @@ jobs:
 
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/6916
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   check-tracing:
     timeout-minutes: 20
     needs: [preflight, test-node-metrics]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: script
         run: |
           forklift cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features
           forklift cargo test --locked --manifest-path ./substrate/primitives/tracing/Cargo.toml --no-default-features --features=with-tracing
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   check-metadata-hash:
     timeout-minutes: 20
     needs: [preflight, check-tracing]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: script
         run: |
@@ -314,12 +472,27 @@ jobs:
   #         path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
   #         name: hfuzz-${{ github.sha }}
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   cargo-check-each-crate:
     timeout-minutes: 70
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-D warnings"
@@ -330,6 +503,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Check Rust
         run: |
@@ -342,10 +518,22 @@ jobs:
           cp .forklift/config.toml /github/home/.forklift/config.toml
           PYTHONUNBUFFERED=x .github/scripts/check-each-crate.py ${{ matrix.index }} ${{ strategy.job-total }}
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   cargo-check-all-crate-macos:
     timeout-minutes: 30
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER_MACOS }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER_MACOS) }}
     if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       SKIP_WASM_BUILD: 1
@@ -377,7 +565,9 @@ jobs:
         run: cargo check --workspace --locked
 
   confirm-required-test-misc-jobs-passed:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     name: All test misc tests passed
     # If any new job gets added, be sure to add it to this array
     needs:

@@ -25,14 +25,33 @@ runs:
       shell: bash
       run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"
 
+    - name: Discover runner Cargo cache
+      id: cargo-cache
+      if: ${{ (!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request }}
+      shell: bash
+      run: |
+        for candidate in \
+          /opt/runner-hooks/cargo-cache/client.env \
+          /opt/runner-cache-hooks/cargo-cache/client.env; do
+          if [[ -r "$candidate" ]]; then
+            echo "secret-file=cargo_cache_env=$candidate" >> "$GITHUB_OUTPUT"
+            break
+          fi
+        done
+
     - name: build
       shell: bash
       env:
+        CARGO_CACHE_SECRET_FILE: ${{ steps.cargo-cache.outputs.secret-file }}
         ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
       run: |
         export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
         if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
-        docker build \
+        cache_args=()
+        if [[ -n "$CARGO_CACHE_SECRET_FILE" ]]; then
+          cache_args+=(--secret "${CARGO_CACHE_SECRET_FILE/cargo_cache_env=/id=cargo_cache_env,src=}")
+        fi
+        docker build "${cache_args[@]}" \
           --build-arg VCS_REF="${GITHUB_SHA}" \
           --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
           --build-arg IMAGE_NAME="${{ inputs.image-name }}" \

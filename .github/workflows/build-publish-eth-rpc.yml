@@ -20,7 +20,9 @@ jobs:
   set-variables:
     # This workaround sets the container image for each job using 'set-variables' job output.
     # env variables don't work for PR from forks, so we need to use outputs.
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: isdraft
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
@@ -38,7 +40,9 @@ jobs:
 
   build_docker:
     name: Build docker images
-    runs-on: parity-large
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}
@@ -46,18 +50,35 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
+      - name: Discover runner Cargo cache
+        id: cargo-cache
+        if: ${{ (!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request }}
+        shell: bash
+        run: |
+          for candidate in \
+            /opt/runner-hooks/cargo-cache/client.env \
+            /opt/runner-cache-hooks/cargo-cache/client.env; do
+            if [[ -r "$candidate" ]]; then
+              echo "secret-file=cargo_cache_env=$candidate" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+
       - name: Build eth-rpc Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
+          secret-files: ${{ steps.cargo-cache.outputs.secret-file }}
           push: false
           tags: |
             ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
 
   build_push_docker:
     name: Build and push docker images
-    runs-on: parity-large
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     if: github.ref == 'refs/heads/master'
     needs: [set-variables]
     env:
@@ -72,11 +93,26 @@ jobs:
           username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
           password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
+      - name: Discover runner Cargo cache
+        id: cargo-cache
+        if: ${{ (!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request }}
+        shell: bash
+        run: |
+          for candidate in \
+            /opt/runner-hooks/cargo-cache/client.env \
+            /opt/runner-cache-hooks/cargo-cache/client.env; do
+            if [[ -r "$candidate" ]]; then
+              echo "secret-file=cargo_cache_env=$candidate" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+
       - name: Build eth-rpc Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
+          secret-files: ${{ steps.cargo-cache.outputs.secret-file }}
           push: true
           tags: |
             ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}

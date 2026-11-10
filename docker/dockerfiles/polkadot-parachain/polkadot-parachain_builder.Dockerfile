@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # This file is sourced from https://github.com/paritytech/polkadot-sdk/blob/master/docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Dockerfile
 # This is the build stage for polkadot-parachain. Here we create the binary in a temporary image.
 FROM docker.io/paritytech/ci-linux:production as builder
@@ -5,7 +6,11 @@ FROM docker.io/paritytech/ci-linux:production as builder
 WORKDIR /cumulus
 COPY . /cumulus
 
-RUN cargo build --release --locked -p polkadot-parachain
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build --release --locked -p polkadot-parachain
 
 # This is the 2nd stage: a very small image where we copy the Polkadot binary."
 FROM docker.io/library/ubuntu:20.04

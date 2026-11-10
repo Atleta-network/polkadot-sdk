@@ -32,18 +32,14 @@ on:
       RUNNER:
         value: ${{ jobs.preflight.outputs.RUNNER }}
         description: |
-          Main runner for resource-intensive tasks
-          By default we use spot machines that can be terminated at any time.
-          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+          Existing Atleta-network self-hosted Linux X64 pool.
       RUNNER_OLDLINUX:
         value: ${{ jobs.preflight.outputs.RUNNER_OLDLINUX }}
         description: |
-          parity-oldlinux
-          By default we use spot machines that can be terminated at any time.
-          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+          Self-hosted Linux X64 runner with an oldlinux capability label.
       RUNNER_DEFAULT:
         value: ${{ jobs.preflight.outputs.RUNNER_DEFAULT }}
-        description: "Relatively lightweight runner. When `ubuntu-latest` is not enough"
+        description: "Existing Atleta-network self-hosted Linux X64 pool"
       RUNNER_WEIGHTS:
         value: ${{ jobs.preflight.outputs.RUNNER_WEIGHTS }}
       RUNNER_BENCHMARK:
@@ -76,7 +72,9 @@ jobs:
   #
   #
   preflight:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
       changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
@@ -144,18 +142,18 @@ jobs:
         id: set_runner
         shell: bash
         run: |
-          echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
-          echo "RUNNER_WEIGHTS=parity-weights" >> $GITHUB_OUTPUT
-          echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
-          echo "RUNNER_MACOS=parity-macos" >> $GITHUB_OUTPUT
+          printf '%s\n' 'RUNNER_DEFAULT=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
+          printf '%s\n' 'RUNNER_WEIGHTS=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
+          printf '%s\n' 'RUNNER_BENCHMARK=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
+          printf '%s\n' 'RUNNER_MACOS=["self-hosted","macOS","ARM64"]' >> "$GITHUB_OUTPUT"
           #
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
-            echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
+            printf '%s\n' 'RUNNER=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'RUNNER_OLDLINUX=["self-hosted","Linux","X64","oldlinux"]' >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
-            echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
+            printf '%s\n' 'RUNNER=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'RUNNER_OLDLINUX=["self-hosted","Linux","X64","oldlinux"]' >> "$GITHUB_OUTPUT"
           fi
 
       #
@@ -187,11 +185,19 @@ jobs:
   #
   ci-versions:
     needs: [preflight]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Info rust
         run: |
@@ -220,3 +226,13 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi

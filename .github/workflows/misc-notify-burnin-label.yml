@@ -5,7 +5,9 @@ on:
 
 jobs:
   notify-devops:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     strategy:
       matrix:
         channel:

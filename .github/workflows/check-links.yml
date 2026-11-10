@@ -21,7 +21,9 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   link-checker:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: isdraft
     timeout-minutes: 10
     steps:

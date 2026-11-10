@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM rust AS builder
 
 RUN apt-get update && \
@@ -8,7 +9,11 @@ RUN apt-get update && \
 WORKDIR /polkadot
 COPY . /polkadot
 RUN rustup component add rust-src
-RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
 
 FROM docker.io/parity/base-bin:latest
 COPY --from=builder /polkadot/target/production/eth-rpc /usr/local/bin

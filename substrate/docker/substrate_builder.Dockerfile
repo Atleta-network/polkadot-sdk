@@ -1,9 +1,14 @@
+# syntax=docker/dockerfile:1.7
 # This is the build stage for Substrate. Here we create the binary.
 FROM docker.io/paritytech/ci-linux:production as builder
 
 WORKDIR /substrate
 COPY . /substrate
-RUN cargo build --locked --release
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build --locked --release
 
 # This is the 2nd stage: a very small image where we copy the Substrate binary."
 FROM docker.io/library/ubuntu:20.04

@@ -18,12 +18,14 @@ on:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: ./.github/workflows/check-synchronization.yml
 
   validate-inputs:
     needs: [ check-synchronization ]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
 
@@ -41,7 +43,9 @@ jobs:
 
   get-rust-versions:
     needs: [ validate-inputs ]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
     steps:
@@ -63,7 +67,9 @@ jobs:
       contents: read
 
   publish-release-draft:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     environment: release
     needs: [ validate-inputs, get-rust-versions, build-runtimes ]
     outputs:
@@ -145,7 +151,9 @@ jobs:
     needs: [ validate-inputs, build-runtimes, publish-release-draft ]
     environment: release
     continue-on-error: true
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     strategy:
       matrix: ${{ fromJSON(needs.build-runtimes.outputs.published_runtimes) }}
 
@@ -184,7 +192,9 @@ jobs:
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
     continue-on-error: true
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     strategy:
       matrix:
         binary: [ polkadot, polkadot-execute-worker, polkadot-prepare-worker, polkadot-parachain, polkadot-omni-node, frame-omni-bencher, chain-spec-builder ]
@@ -238,7 +248,9 @@ jobs:
           fi
 
   post_to_matrix:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
     strategy:

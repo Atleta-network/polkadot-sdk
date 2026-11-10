@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 #
 ### Builder stage
 #
@@ -24,7 +25,11 @@ RUN export PATH="$PATH:$HOME/.cargo/bin" && \
 
 WORKDIR /usr/src/polkadot-malus/polkadot
 
-RUN cargo build -p polkadot-test-malus --release --verbose
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build -p polkadot-test-malus --release --verbose
 RUN cp -v /usr/src/polkadot-malus/polkadot/target/release/malus /usr/local/bin
 
 # check if executable works in this container

@@ -21,7 +21,9 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   runtime-matrix:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [preflight]
     timeout-minutes: 30
     outputs:
@@ -29,12 +31,39 @@ jobs:
       branch: ${{ steps.branch.outputs.branch }}
       date: ${{ steps.branch.outputs.date }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     name: Extract runtimes from matrix
     steps:
       - uses: actions/checkout@v4
         with:
           ref: master
+
+      - name: Configure runner Cargo cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          if [[ ! -s /run/secrets/cargo_cache_env ]]; then
+            echo 'RUSTC_WRAPPER=' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          set -a
+          # shellcheck disable=SC1091
+          . /run/secrets/cargo_cache_env
+          set +a
+          printf '::add-mask::%s\n' "$SCCACHE_WEBDAV_PASSWORD"
+          for name in SCCACHE_WEBDAV_ENDPOINT SCCACHE_WEBDAV_USERNAME SCCACHE_WEBDAV_PASSWORD \
+            SCCACHE_WEBDAV_DISABLE_CREATE_DIR SCCACHE_SKIP_CACHE_CHECK \
+            CARGO_CACHE_AUTO_CLEAN_FREQUENCY; do
+            printf '%s=%s\n' "$name" "${!name-}" >> "$GITHUB_ENV"
+          done
+          session="$(mktemp -d /tmp/sdk-sccache.XXXXXX)"
+          printf '%s\n' 'RUSTC_WRAPPER=/opt/runner-cargo-cache/sccache' \
+            'CARGO_INCREMENTAL=0' 'SCCACHE_IGNORE_SERVER_IO_ERROR=1' \
+            'FORKLIFT_BYPASS=true' "SCCACHE_SERVER_UDS=$session/server.sock" >> "$GITHUB_ENV"
 
       - name: Extract runtimes
         id: runtime
@@ -59,9 +88,21 @@ jobs:
           echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   run-frame-omni-bencher:
     needs: [preflight, runtime-matrix]
-    runs-on: ${{ needs.preflight.outputs.RUNNER_WEIGHTS }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.preflight.outputs.RUNNER_WEIGHTS) }}
     # 24 hours per runtime. 
     # Max it takes 14hr for westend to recalculate, but due to limited runners,
     # sometimes it can take longer.
@@ -71,6 +112,9 @@ jobs:
       matrix:
         runtime: ${{ fromJSON(needs.runtime-matrix.outputs.runtime) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       PACKAGE_NAME: ${{ matrix.runtime.package }}
@@ -83,6 +127,30 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.runtime-matrix.outputs.branch }} # checkout always from the initially created branch to avoid conflicts
+
+      - name: Configure runner Cargo cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          if [[ ! -s /run/secrets/cargo_cache_env ]]; then
+            echo 'RUSTC_WRAPPER=' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          set -a
+          # shellcheck disable=SC1091
+          . /run/secrets/cargo_cache_env
+          set +a
+          printf '::add-mask::%s\n' "$SCCACHE_WEBDAV_PASSWORD"
+          for name in SCCACHE_WEBDAV_ENDPOINT SCCACHE_WEBDAV_USERNAME SCCACHE_WEBDAV_PASSWORD \
+            SCCACHE_WEBDAV_DISABLE_CREATE_DIR SCCACHE_SKIP_CACHE_CHECK \
+            CARGO_CACHE_AUTO_CLEAN_FREQUENCY; do
+            printf '%s=%s\n' "$name" "${!name-}" >> "$GITHUB_ENV"
+          done
+          session="$(mktemp -d /tmp/sdk-sccache.XXXXXX)"
+          printf '%s\n' 'RUSTC_WRAPPER=/opt/runner-cargo-cache/sccache' \
+            'CARGO_INCREMENTAL=0' 'SCCACHE_IGNORE_SERVER_IO_ERROR=1' \
+            'FORKLIFT_BYPASS=true' "SCCACHE_SERVER_UDS=$session/server.sock" >> "$GITHUB_ENV"
 
       - name: script
         id: required
@@ -117,8 +185,20 @@ jobs:
           name: diff-${{ matrix.runtime.name }}
           path: diff-${{ matrix.runtime.name }}.patch
 
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi
+
   apply-diff-commit:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [runtime-matrix, run-frame-omni-bencher]
     steps:
       - name: Checkout

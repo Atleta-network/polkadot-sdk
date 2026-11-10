@@ -10,7 +10,9 @@ on:
 jobs:
   add-parachain-issues:
     if: github.event.label.name == 'T16-async_backing'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     steps:
       - name: Generate token
         id: generate_token

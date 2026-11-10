@@ -1,10 +1,15 @@
+# syntax=docker/dockerfile:1.7
 # This is the build stage for Polkadot. Here we create the binary in a temporary image.
 FROM docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408 as builder
 
 WORKDIR /polkadot
 COPY . /polkadot
 
-RUN cargo build --locked --release
+COPY tools/ci/install_sccache.sh tools/ci/with_cargo_cache.sh /tmp/cargo-cache/
+RUN sh /tmp/cargo-cache/install_sccache.sh
+
+RUN --mount=type=secret,id=cargo_cache_env \
+    sh /tmp/cargo-cache/with_cargo_cache.sh cargo build --locked --release
 
 # This is the 2nd stage: a very small image where we copy the Polkadot binary."
 FROM docker.io/parity/base-bin:latest

@@ -17,12 +17,14 @@ on:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: ./.github/workflows/check-synchronization.yml
 
   validate-inputs:
     needs: [check-synchronization]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
 
@@ -40,7 +42,9 @@ jobs:
 
 
   fetch-artifacts-from-s3:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [validate-inputs]
     env:
       REPO: ${{ github.repository }}
@@ -69,7 +73,9 @@ jobs:
           path: release-artifacts/polkadot/*.deb
 
   publish-deb-package:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [fetch-artifacts-from-s3]
     environment: release
     env:

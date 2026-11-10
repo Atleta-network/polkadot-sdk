@@ -100,7 +100,9 @@ jobs:
   #
   #
   preflight:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
       changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
@@ -195,7 +197,9 @@ jobs:
   #
   ci-env:
     needs: [preflight]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     steps:
       - name: Info vars
         run: |
@@ -219,7 +223,9 @@ jobs:
   # Wait until the 'build and push' image workflow success
   wait_build_images:
     needs: [ci-env]
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     timeout-minutes: 30
     outputs:
       BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}

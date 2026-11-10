@@ -32,7 +32,9 @@ on:
 
 jobs:
   prepare-chain-spec-artifacts:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     strategy:
       matrix:
         include:
@@ -91,7 +93,9 @@ jobs:
 
   sync-templates:
     needs: prepare-chain-spec-artifacts
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     environment: master
     strategy:
       fail-fast: false
@@ -251,6 +255,7 @@ jobs:
           haskell: false
           large-packages: false
           swap-storage: false
+          docker-images: false # The Docker daemon is shared by runner jobs.
 
       - name: Check if it compiles
         id: check-compilation

@@ -32,7 +32,9 @@ jobs:
     name: Fetch runtime specs
     outputs:
       specs: ${{ steps.get-list.outputs.specs }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
@@ -46,7 +48,9 @@ jobs:
 
   check-runtimes:
     name: Check runtime specs
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs:
       - find-specs
 

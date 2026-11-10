@@ -65,12 +65,14 @@ env:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: ./.github/workflows/check-synchronization.yml
 
   validate-inputs:
     needs: [check-synchronization]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       version: ${{ steps.validate_inputs.outputs.VERSION }}
       stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
@@ -92,7 +94,9 @@ jobs:
 
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [ validate-inputs ]
 
     steps:
@@ -122,7 +126,9 @@ jobs:
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [ fetch-artifacts, validate-inputs ]
     environment: release
 
@@ -248,7 +254,9 @@ jobs:
 
   fetch-latest-debian-package-version: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
       polkadot_container_tag: ${{ steps.fetch-latest-apt.outputs.polkadot_container_tag }}
@@ -270,7 +278,9 @@ jobs:
 
   build-polkadot-release-container: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: [ fetch-latest-debian-package-version, validate-inputs ]
     environment: release
     steps:

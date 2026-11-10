@@ -15,7 +15,9 @@ permissions:
 jobs:
   backport:
     name: Backport pull request
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >

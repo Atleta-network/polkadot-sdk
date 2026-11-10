@@ -31,7 +31,9 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   sync:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     needs: isdraft
     steps:
       - name: Do nothing

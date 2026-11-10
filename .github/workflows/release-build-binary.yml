@@ -25,7 +25,9 @@ jobs:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
@@ -42,19 +44,27 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ inputs.binary }}" == "polkadot-parachain" ]]; then
-            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+            printf '%s\n' 'RUNNER=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
+            printf '%s\n' 'RUNNER=["self-hosted","Linux","X64"]' >> "$GITHUB_OUTPUT"
           fi
 
   build:
     needs: [setup]
-    runs-on: ${{ needs.setup.outputs.RUNNER }}
+    runs-on:
+      group: Atleta-network
+      labels: ${{ fromJSON(needs.setup.outputs.RUNNER) }}
     container:
+      volumes:
+        - /opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/sccache:/opt/runner-cargo-cache/sccache:ro
+        - ${{ ((!github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository) && !github.event.issue.pull_request) && '/opt/runner-cargo-cache/groups/atleta-network/hooks/cargo-cache/client.env:/run/secrets/cargo_cache_env:ro' || '/dev/null:/run/secrets/cargo_cache_env:ro' }}
       image: ${{ needs.setup.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Configure runner Cargo cache
+        uses: ./.github/actions/cargo-cache
 
       - name: Build binary
         run: |
@@ -74,3 +84,13 @@ jobs:
         with:
           name: ${{ inputs.binary }}
           path: /artifacts/**
+
+      - name: Report runner Cargo cache statistics
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SCCACHE_SERVER_UDS:-}" ]]; then
+            /opt/runner-cargo-cache/sccache --show-stats 2>/dev/null | sed -n \
+              -e '/^Compile requests /p' -e '/^Cache hits /p' -e '/^Cache misses /p' || :
+            /opt/runner-cargo-cache/sccache --stop-server >/dev/null 2>&1 || :
+          fi

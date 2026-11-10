@@ -12,7 +12,9 @@ permissions:
 jobs:
   update-wishlist-leaderboard:
     if: github.repository == 'paritytech/polkadot-sdk'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Atleta-network
+      labels: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
