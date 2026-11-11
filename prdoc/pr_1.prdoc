@@ -12,6 +12,8 @@ doc:
       Each runner keeps an isolated workspace and tool storage; build targets
       are not shared between concurrent jobs. PRdoc Python tools install into a
       private temporary environment with their required YAML parser.
+      Native Cargo jobs omit archive-cache cleanup that can delete shared crate
+      sources; archive caching remains only inside isolated job containers.
 
       Existing toolchains, compiler arguments, test partitions, release gates
       and final runtime stages are preserved. Native macOS ARM64 and oldlinux

@@ -25,6 +25,11 @@ arguments, Rust versions, test partitions, profiles, and admission conditions ar
 preserved. Existing K8s, GCS, registry, signing and publishing prerequisites remain
 separate requirements; this change does not create those upstream services.
 
+Native Cargo jobs use the runner-managed download/compiler cache and omit
+archive-cache actions that prune the shared registry sources. The two existing
+archive cache steps inside isolated job containers remain: those containers
+do not bind the host Cargo home, registry, or Git downloads.
+
 The getting-started distro matrix deliberately tests fresh-user toolchain setup.
 It clears an outer-runner wrapper path and keeps that fresh-user build uncached.
 
